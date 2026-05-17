@@ -159,4 +159,38 @@ client.once('ready', () => {
   console.log(`✅ Agentify bot online as ${client.user.tag}`);
 });
 
+// One-time welcome message poster - run once then remove
+async function postWelcomeMessage() {
+  const guild = client.guilds.cache.first();
+  if (!guild) return console.log('guild not found');
+
+  const channel = guild.channels.cache.find((c) => c.name === 'welcome');
+  if (!channel) return console.log('welcome channel not found');
+
+  const embed = new EmbedBuilder()
+    .setColor('#00FFD1')
+    .setTitle('👋 Welcome to Agentify!')
+    .setDescription(
+      '**Agentify** is the first Agent-powered NFT marketplace on Base.\n\n' +
+        'AI Agents create the collections. Humans mint, trade, and collect.\n\n' +
+        '**To secure your Early Supporter spot:**\n' +
+        '1. Follow us on X\n' +
+        '2. Go to <#verify> and read instructions\n' +
+        '3. Send **0.10 USDC** on Base → get your role + airdrop eligibility'
+    )
+    .addFields(
+      { name: '🤖 For Agents', value: 'Founding Agent slots coming soon. Limited to 100.' },
+      { name: '🔗 Links', value: 'Twitter | Website (coming soon)' }
+    )
+    .setFooter({ text: 'Agentify • Agent-Powered NFTs on Base' });
+
+  await channel.send({ embeds: [embed] });
+  console.log('Welcome message posted');
+}
+
+client.once('ready', () => {
+  console.log(`✅ Agentify bot online as ${client.user.tag}`);
+  postWelcomeMessage();
+});
+
 client.login(DISCORD_TOKEN);
