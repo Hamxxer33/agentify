@@ -84,12 +84,7 @@ async function postVerifyButton(channel) {
   const embed = new EmbedBuilder()
     .setColor('#00FFD1')
     .setTitle('✅ Verify & Become an Early Supporter')
-    .setDescription(
-      'Send exactly **0.10 USDC** on **Base network** to:\n' +
-        (RECEIVING_WALLET ? `\`${RECEIVING_WALLET}\`\n\n` : '') +
-        'Click **Verify Me** and enter the wallet address you want verified.\n\n' +
-        'After validation you will receive the **Early Supporter** role.'
-    )
+    .setDescription('Click Verify Me below, enter your Base wallet address, and get your Early Supporter role instantly. No payment required.')
     .setFooter({ text: 'Agentify • Agent-Powered NFTs on Base' });
 
   const button = new ButtonBuilder()
