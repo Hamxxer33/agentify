@@ -18,19 +18,9 @@ const RECEIVING_WALLET = process.env.RECEIVING_WALLET?.toLowerCase();
 const BASE_RPC = process.env.BASE_RPC || 'https://mainnet.base.org';
 const EARLY_SUPPORTER_ROLE = 'Early Supporter';
 
-const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-const USDC_ABI = ['event Transfer(address indexed from, address indexed to, uint256 value)'];
-
 if (!DISCORD_TOKEN) {
   throw new Error('DISCORD_TOKEN is required in .env');
 }
-
-if (!RECEIVING_WALLET || !ethers.isAddress(RECEIVING_WALLET)) {
-  throw new Error('RECEIVING_WALLET is required in .env and must be a valid wallet address');
-}
-
-const provider = new ethers.JsonRpcProvider(BASE_RPC);
-const usdc = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
 
 const client = new Client({
   intents: [
@@ -49,7 +39,6 @@ const onClientReady = async () => {
 };
 
 client.once('clientReady', onClientReady);
-client.once('ready', onClientReady);
 
 async function postStartupMessages() {
   const guild = client.guilds.cache.first();
@@ -96,9 +85,9 @@ async function postVerifyButton(channel) {
     .setTitle('✅ Verify & Become an Early Supporter')
     .setDescription(
       'Send exactly **0.10 USDC** on **Base network** to:\n' +
-        `\`${RECEIVING_WALLET}\`\n\n` +
-        'Then click **Verify Me** and enter the wallet address you sent from.\n\n' +
-        'After verification, you will receive the **Early Supporter** role.'
+        (RECEIVING_WALLET ? `\`${RECEIVING_WALLET}\`\n\n` : '') +
+        'Click **Verify Me** and enter the wallet address you want verified.\n\n' +
+        'After validation you will receive the **Early Supporter** role.'
     )
     .setFooter({ text: 'Agentify • Agent-Powered NFTs on Base' });
 
@@ -107,10 +96,7 @@ async function postVerifyButton(channel) {
     .setLabel('🔍 Verify Me')
     .setStyle(ButtonStyle.Primary);
 
-  await channel.send({
-    embeds: [embed],
-    components: [new ActionRowBuilder().addComponents(button)],
-  });
+  await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(button)] });
   console.log('✅ Verify button posted in #verify');
 }
 
@@ -126,10 +112,7 @@ async function postSubmitButton(channel) {
     .setLabel('📬 Submit Wallet')
     .setStyle(ButtonStyle.Success);
 
-  await channel.send({
-    embeds: [embed],
-    components: [new ActionRowBuilder().addComponents(button)],
-  });
+  await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(button)] });
   console.log('✅ Submit button posted in #submit-wallet');
 }
 
@@ -142,7 +125,7 @@ client.on('interactionCreate', async (interaction) => {
 
       const walletInput = new TextInputBuilder()
         .setCustomId('wallet_input')
-        .setLabel('Wallet you sent 0.10 USDC from')
+        .setLabel('Base wallet address (0x...)')
         .setStyle(TextInputStyle.Short)
         .setPlaceholder('0x...')
         .setRequired(true)
@@ -159,13 +142,13 @@ client.on('interactionCreate', async (interaction) => {
     const wallet = interaction.fields.getTextInputValue('wallet_input').trim().toLowerCase();
 
     if (!ethers.isAddress(wallet)) {
-      await interaction.reply({ content: '❌ Invalid wallet address. Must be a full `0x...` address.', ephemeral: true });
+      await interaction.reply({ content: '❌ Invalid wallet address. Must be a full 0x... address.', ephemeral: true });
       return;
     }
 
     const role = interaction.guild?.roles.cache.find((r) => r.name === EARLY_SUPPORTER_ROLE);
     if (!role) {
-      await interaction.reply({ content: `⚠️ Role \`${EARLY_SUPPORTER_ROLE}\` not found. Ask an admin to create it.`, ephemeral: true });
+      await interaction.reply({ content: `⚠️ Role ${EARLY_SUPPORTER_ROLE} not found. Ask an admin to create it.`, ephemeral: true });
       return;
     }
 
@@ -174,36 +157,19 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
-    await interaction.deferReply({ ephemeral: true });
-
-    const verified = await checkUSDCPayment(wallet);
-    if (verified) {
-      if (interaction.member?.roles) {
-        await interaction.member.roles.add(role).catch(() => null);
-      }
-
+    // Immediately assign role after address validation (no on-chain checks)
+    try {
+      if (interaction.member?.roles) await interaction.member.roles.add(role);
       const embed = new EmbedBuilder()
         .setColor('#00FFD1')
         .setTitle('🎉 Verified! Welcome, Early Supporter!')
-        .setDescription('Payment confirmed on Base.\n\nYou\'ve been granted the **Early Supporter** role and are now eligible for the **$AGENTIFY airdrop**.')
+        .setDescription('Your wallet address has been validated and the **Early Supporter** role has been assigned. Welcome!')
         .setFooter({ text: 'Agentify • Agent-Powered NFTs on Base' });
 
-      await interaction.editReply({ content: '', embeds: [embed] });
-    } else {
-      const embed = new EmbedBuilder()
-        .setColor('#FF4444')
-        .setTitle('❌ Payment Not Found')
-        .setDescription(
-          `No **0.10 USDC** transfer found from \`${wallet}\` in the last 24 hours.\n\n` +
-            '**Check:**\n' +
-            '• Correct wallet address\n' +
-            '• Sent on **Base network**\n' +
-            '• Exact amount: **0.10 USDC**\n' +
-            '• Wait 1-2 mins then retry'
-        )
-        .setFooter({ text: 'Agentify • Agent-Powered NFTs on Base' });
-
-      await interaction.editReply({ content: '', embeds: [embed] });
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+    } catch (err) {
+      console.error('Role assignment error:', err.message);
+      await interaction.reply({ content: '⚠️ Could not assign role. Please ask an admin to grant your role.', ephemeral: true });
     }
   }
 });
@@ -224,39 +190,18 @@ client.on('guildMemberAdd', async (member) => {
           'Links below will take you to our community and waitlist.'
       )
       .addFields(
-        { name: 'Twitter', value: '[https://x.com/agentifyxyz](https://x.com/agentifyxyz)' },
-        { name: 'Waitlist', value: '[https://agentify-lyart.vercel.app](https://agentify-lyart.vercel.app)' },
-        { name: 'Discord', value: '[discord.gg/FC2RftwyJ](https://discord.gg/FC2RftwyJ)' }
+        { name: 'Twitter', value: 'https://x.com/agentifyxyz' },
+        { name: 'Waitlist', value: 'https://agentify-lyart.vercel.app' },
+        { name: 'Discord', value: 'https://discord.gg/FC2RftwyJ' }
       )
       .setFooter({ text: 'Agentify • Agent-Powered NFTs on Base' });
 
-    const verifyButton = new ButtonBuilder()
-      .setLabel('✅ Verify Me')
-      .setStyle(ButtonStyle.Link)
-      .setURL(verifyUrl);
+    const verifyButton = new ButtonBuilder().setLabel('✅ Verify Me').setStyle(ButtonStyle.Link).setURL(verifyUrl);
 
     await member.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(verifyButton)] });
   } catch (err) {
     console.error('Could not DM member:', err.message);
   }
 });
-
-async function checkUSDCPayment(fromWallet) {
-  try {
-    const currentBlock = await provider.getBlockNumber();
-    const fromBlock = Math.max(0, currentBlock - 43200);
-    const filter = usdc.filters.Transfer(fromWallet, RECEIVING_WALLET);
-    const events = await usdc.queryFilter(filter, fromBlock, currentBlock);
-
-    for (const event of events) {
-      if (event.args.value >= BigInt(100000)) return true;
-    }
-
-    return false;
-  } catch (err) {
-    console.error('RPC check error:', err.message);
-    return false;
-  }
-}
 
 client.login(DISCORD_TOKEN);
