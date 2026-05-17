@@ -1,0 +1,14 @@
+{
+  "name": "agentify-discord-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for Agentify USDC verification on Base",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.0",
+    "dotenv": "^16.4.3",
+    "ethers": "^6.9.0"
+  }
+}
