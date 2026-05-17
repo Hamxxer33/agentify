@@ -11,7 +11,6 @@ const {
   TextInputBuilder,
   TextInputStyle,
 } = require('discord.js');
-const { ethers } = require('ethers');
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const RECEIVING_WALLET = process.env.RECEIVING_WALLET?.toLowerCase();
@@ -38,7 +37,7 @@ const onClientReady = async () => {
   await postStartupMessages();
 };
 
-client.once('clientReady', onClientReady);
+client.once('ready', onClientReady);
 
 async function postStartupMessages() {
   const guild = client.guilds.cache.first();
@@ -50,6 +49,7 @@ async function postStartupMessages() {
   if (verifyChannel) {
     await clearBotMessages(verifyChannel);
     await postVerifyButton(verifyChannel);
+    console.log('✅ #verify channel refreshed and posted');
   } else {
     console.log('❌ #verify channel not found');
   }
@@ -57,6 +57,7 @@ async function postStartupMessages() {
   if (submitChannel) {
     await clearBotMessages(submitChannel);
     await postSubmitButton(submitChannel);
+    console.log('✅ #submit-wallet channel refreshed and posted');
   } else {
     console.log('❌ #submit-wallet channel not found');
   }
@@ -103,8 +104,8 @@ async function postVerifyButton(channel) {
 async function postSubmitButton(channel) {
   const embed = new EmbedBuilder()
     .setColor('#00FFD1')
-    .setTitle('📬 Submit Wallet')
-    .setDescription('Already sent your **0.10 USDC** on Base? Click the button below, enter your wallet address, and get verified instantly.')
+    .setTitle('📬 Submit Your Wallet')
+    .setDescription('Click the button below to submit your Base wallet address and get your Early Supporter role instantly.')
     .setFooter({ text: 'Agentify • Agent-Powered NFTs on Base' });
 
   const button = new ButtonBuilder()
@@ -141,8 +142,8 @@ client.on('interactionCreate', async (interaction) => {
   if (interaction.isModalSubmit() && interaction.customId === 'wallet_modal') {
     const wallet = interaction.fields.getTextInputValue('wallet_input').trim().toLowerCase();
 
-    if (!ethers.isAddress(wallet)) {
-      await interaction.reply({ content: '❌ Invalid wallet address. Must be a full 0x... address.', ephemeral: true });
+    if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+      await interaction.reply({ content: '❌ Invalid wallet address. Must be a full 0x... address with 42 characters.', ephemeral: true });
       return;
     }
 
